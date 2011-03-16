@@ -6,8 +6,6 @@ they collide with most js templating solutions out there.
 """
 ### TODO:
 ### - add "watch" feature where file changes are tracked and only those are compiled which have been changed
-##  - jsborg is not yet recursive. included js files are not parsed for directives
-##  - make sure that files are not included more than once. keep track of dependencies. unique id is the full path of the file
 ##  - if a sub module is changed, change only those up the hierarchy which depend on the module
 import sys
 import re
@@ -34,6 +32,9 @@ def parseDefines(defines):
     # FIXME: just assume boolean variables for now
     for d in defines:
         DEFINES[d] = True
+
+# we want to track the already "required" files
+REQUIRE_LOG = {} # fullpath -> True
 
 def require_handler(context, content):
     # find the first newline. ignore everything after that
@@ -69,10 +70,19 @@ def require_handler(context, content):
         print "start:", line[0]
         print "end:", line[-1]
         raise Exception("require action doesn't know how to handle: %s" % line)
+    REQUIRE_LOG.setdefault(fullpath, False)
+    if REQUIRE_LOG[fullpath]:
+        return len(line)+1, ""
+    else:
+        REQUIRE_LOG[fullpath] = True
     f = open(os.path.join(fullpath), "r")
     content = f.read()
     f.close()
-    return len(line)+1, content
+
+    newcontent = replaceDirectives(context["root"],
+                                   fullpath,
+                                   content)
+    return len(line)+1, newcontent
 
 def if_handler(context, content):
     return
@@ -81,19 +91,12 @@ ACTION_HANDLERS = {
     "require" : require_handler,
 }
 
-def jsborg(root, filename):
-    ROOT_PATHS.append(root)
-
-    # read in the content of the main file
-    f = open(filename, "r")
-    content = f.read()
-    f.close()
-
+def replaceDirectives(root, filename, content):
     out = []
     context = dict(root=root, relative_path=os.path.dirname(filename))
-
     # match any directives
     content_start = 0
+    lastindex = 0
     for directive_match in DIRECTIVE_START.finditer(content):
         s,e = directive_match.start(),directive_match.end()
         action_match = COMMAND.search(content[e:])
@@ -115,7 +118,18 @@ def jsborg(root, filename):
         lastindex = e+action_match.end()+arg_offset
     # add remaining content
     out.append(content[lastindex:])
-    print "".join(out)
+    return "".join(out)
+
+def jsborg(root, filename):
+    ROOT_PATHS.append(root)
+
+    # read in the content of the main file
+    f = open(filename, "r")
+    content = f.read()
+    f.close()
+
+    out = replaceDirectives(root, filename, content)
+    print out
 
 if __name__ == '__main__':
     from optparse import OptionParser
