@@ -29,3 +29,9 @@ class TestJSBorg(unittest.TestCase):
         filename = "tests/js/test_recursive_require_result.js"
         self.compare_command_output_with_file_contents(cmd, filename)
 
+    def test_compile_recursive_multiple_same_require(self):
+        cmd = "python jsborg/jsborg.py tests/js tests/js/test_recursive_multiple_same_require.js"
+        filename = "tests/js/test_recursive_multiple_same_require_result.js"
+        self.compare_command_output_with_file_contents(cmd, filename)
+
+
