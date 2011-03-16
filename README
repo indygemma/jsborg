@@ -1,0 +1,32 @@
+jsborg
+======
+
+sprocketize-inspired javascript preprocessing script. Allows modularized
+javascript app-development, with the help of pre-defined actions.
+
+Currently supported actions are:
+
+    //= require "<filename>"
+    //= require <jsroot/utils/file>
+
+the "require" action also supports defines. With this conditional
+requires (e.g unittests) are possible.
+
+    //= require "<filename>" if DEBUG
+
+Usage
+=====
+
+    $ jsborg jsroot jsroot/root.js
+
+this will compile the jsroot/root.js file, by setting the "jsroot"
+directory as the root directory, and the output redirected to stdout.
+
+    $ jsborg jsroot jsroot/root.js > compiled.js
+
+in order to save the output.
+
+User-specified Defines can be set via
+
+    $ jsborg -D DEBUG jsroot jsroot/root.js > compile.js
+
