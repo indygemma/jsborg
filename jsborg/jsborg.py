@@ -123,7 +123,12 @@ def replaceDirectives(root, filename, content):
     return "".join(out)
 
 def jsborg(root, filename, outname, tostdout=False):
+    global DEFINES, ROOT_PATHS, REQUIRE_LOG
     ROOT_PATHS.append(root)
+
+    # reset global variables
+    DEFINES = {}
+    REQUIRE_LOG = {}
 
     # read in the content of the main file
     f = open(filename, "r")
