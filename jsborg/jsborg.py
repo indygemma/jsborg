@@ -5,11 +5,12 @@ it explicitly ignores ERB style <%= %> tags in the code because
 they collide with most js templating solutions out there.
 """
 ### TODO:
-### - add "watch" feature where file changes are tracked and only those are compiled which have been changed
-##  - if a sub module is changed, change only those up the hierarchy which depend on the module
+### - add wildcard / handling of directories support for "require"
+### - if a sub module is changed, change only those up the hierarchy which depend on the module
 import sys
 import re
 import os
+import time
 
 ROOT_PATHS = []
 
@@ -92,6 +93,7 @@ ACTION_HANDLERS = {
 }
 
 def replaceDirectives(root, filename, content):
+    global ACTION_HANDLERS
     out = []
     context = dict(root=root, relative_path=os.path.dirname(filename))
     # match any directives
@@ -120,7 +122,7 @@ def replaceDirectives(root, filename, content):
     out.append(content[lastindex:])
     return "".join(out)
 
-def jsborg(root, filename):
+def jsborg(root, filename, outname, tostdout=False):
     ROOT_PATHS.append(root)
 
     # read in the content of the main file
@@ -129,18 +131,58 @@ def jsborg(root, filename):
     f.close()
 
     out = replaceDirectives(root, filename, content)
-    print out
+
+    if tostdout:
+        print out
+    else:
+        f = open(outname, "w")
+        f.write(out)
+        f.close()
+
+change_table = {}
+
+def watch(base_root, filename, outname, callback):
+    while 1:
+        for root, dirs, file in os.walk(base_root):
+            for f in file:
+                try:
+                    filetype = f.split(".")[1].lower()
+                except:
+                    continue
+                if filetype == "js":
+                    fullpath = os.path.join(root, f)
+                    cur_time = os.stat(fullpath).st_mtime
+                    if not fullpath in change_table:
+                        change_table[fullpath] = os.stat(fullpath).st_mtime
+                    if change_table[fullpath] != cur_time:
+                        change_table[fullpath] = os.stat(fullpath).st_mtime
+                        print "jsborg: change detected in '%s'. compiling to '%s'..." % (fullpath, outname)
+                        callback(base_root, filename, outname)
+        time.sleep(1)
 
 if __name__ == '__main__':
     from optparse import OptionParser
     parser = OptionParser()
-    parser.add_option("-I", "--include", action="append", dest="include")
-    parser.add_option("-D", "--define", action="append", dest="defines")
+    parser.add_option("-I", "--include", action="append",      dest="include")
+    parser.add_option("-D", "--define",  action="append",      dest="defines")
+    parser.add_option("-W", "--watch",   action="store_true",  dest="watch",    default=False)
+    parser.add_option("-S", "--stdout",  action="store_true", dest="tostdout", default=False)
 
     options, args = parser.parse_args()
 
-    if len(args) < 2:
-        print "Usage: jsborg.py <root directory> filename"
-        sys.exit(0)
+    if options.tostdout:
+        if len(args) < 2:
+            print "Usage: jsborg.py <root directory> filename"
+            sys.exit(0)
+    else:
+        if len(args) < 3:
+            print "Usage: jsborg.py <root directory> filename outname"
+            sys.exit(0)
     parseDefines(options.defines)
-    jsborg(args[0], args[1])
+    if options.tostdout:
+        jsborg(args[0], args[1], None, tostdout=options.tostdout)
+        sys.exit(0)
+    if not options.watch:
+        jsborg(args[0], args[1], args[2], tostdout=options.tostdout)
+    else:
+        watch(args[0], args[1], args[2], jsborg)
